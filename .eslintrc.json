@@ -1,0 +1,32 @@
+{
+    "root": true,
+    "env": {
+        "node": true
+    },
+    "extends": ["plugin:vue/essential", "eslint:recommended"],
+    "rules": {
+        "no-debugger": "off",
+        "no-console": "off",
+        "no-unused-vars": "off",
+        "vue/no-unused-vars": "off",
+        "vue/no-textarea-mustache": "off",
+        "vue/require-v-for-key": "off",
+        "no-case-declarations": "off",
+        "no-unused-labels": "off",
+        "vue/no-unused-components": [
+            "off",
+            {
+                "ignoreWhenBindingPresent": false
+            }
+        ],
+        "vue/no-use-v-if-with-v-for": [
+            "off",
+            {
+                "allowUsingIterationVar": true
+            }
+        ]
+    },
+    "parserOptions": {
+        "parser": "babel-eslint"
+    }
+}
