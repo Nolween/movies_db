@@ -61,8 +61,8 @@
       <v-col cols="8" md="10">
         <v-row no-gutters>
           <v-col v-for="(movie, index) in getDisplayedMovies" :key="index" lg="2" md="4" cols="6" class="movie-col">
-            <div class="white text-left pl-2 text-center poster">
-              <v-img :src="'https://image.tmdb.org/t/p/w300' + movie.poster_path" width="300"></v-img>
+            <div class="white text-left text-center poster">
+              <v-img :src="'https://image.tmdb.org/t/p/w300' + movie.poster_path" max-width="300" height="330"></v-img>
             </div>
             <div class="blue text-left pl-2 movie-title">
               <span class="text-h6 white--text">{{ movie.title }}</span>
@@ -74,9 +74,12 @@
               <span class="text-h6 white--text">{{ dayjs(movie.release_date).format("DD/MM/YYYY") }}</span>
             </div>
             <div class="grey darken-3 text-left pa-4 text-center">
-              <span class="text-h6 white--text"
-                ><v-btn color="grey darken-3"><v-icon color="white" class="text-h5">mdi-bookmark</v-icon></v-btn></span
-              >
+                >
+                
+              <v-tooltip top open-delay="200" >
+                <template v-slot:activator="{ on, attrs }">
+                <v-btn v-on="on" v-bind="attrs" :color="seenMoviesIds.includes(movie.id) ==  false ? 'green' : 'red darken-3'" @click="toggleSeenMovie(movie.id)"><v-icon color="white" class="text-h5">mdi-bookmark</v-icon></v-btn>
+                </template>{{seenMoviesIds.includes(movie.id) ==  false ? 'Ajouter aux films déjà vus' : 'Retirer des films déjà vus'}}</v-tooltip>
             </div>
           </v-col>
         </v-row>
@@ -111,6 +114,7 @@ export default {
       genres: [],
       titleSearch: "",
       genreSearch: "",
+      seenMoviesIds: [],
     };
   },
   computed: {
@@ -149,29 +153,32 @@ export default {
           });
         }
         //* Filtre par le genre
-        if (this.genreSearch.length > 0 ) {
+        if (this.genreSearch.length > 0) {
           movies = movies.filter((film) => {
             // Si le film a bien un genre
-            if (film.genre_ids.length > 0 ) {
+            if (film.genre_ids.length > 0) {
               // Le film contient-il au moins un des genres sélectionnés?
-              return this.genreSearch.some(v => film.genre_ids.includes(v))
+              return this.genreSearch.some((v) => film.genre_ids.includes(v));
+            } else {
+              return false;
             }
-            else {
-              return false 
-            }
-          })
+          });
         }
         //* Filtre par années sélectionnées
         if (this.years.length > 0) {
-          var years = this.years
+          var years = this.years;
           movies = movies.filter((film) => {
             // Quelle est l'année de parution du film?
-            let year = dayjs(film.release_date).year()
-            return year >= years[0] && year <= years[1]
-          })
+            let year = dayjs(film.release_date).year();
+            return year >= years[0] && year <= years[1];
+          });
         }
         //* Filtre des filmes déjà vus
-        
+        if(this.onlyUnseenMovies ==  true) {
+          movies = movies.filter((film) => {
+            return !this.seenMoviesIds.includes(film.id);
+          });
+        }
         return movies;
       }
       // On ne garde que de l'index défini à +6
@@ -227,8 +234,28 @@ export default {
         });
       }
     },
+    toggleSeenMovie(movieId) {
+      // Si le film est déjà vu
+      if (this.seenMoviesIds.includes(movieId)) {
+        // Quel est son index dans le tableau?
+        let movieIndex = this.seenMoviesIds.indexOf(movieId);
+        if (movieIndex !== -1) {
+          // On le retire de la liste
+          this.seenMoviesIds.splice(movieIndex, 1);
+        }
+      } else {
+          // On l'ajoute dans la liste
+          this.seenMoviesIds.push(movieId);
+        }
+      // Modification dans le local storage
+      localStorage.setItem('seen_movies', JSON.stringify(this.seenMoviesIds));
+    },
   },
   beforeMount() {
+    // Récupération des IDs de films déjà vus
+    if (localStorage.getItem("seen_movies")) {
+      this.seenMoviesIds = JSON.parse(localStorage.getItem("seen_movies"));
+    }
     this.getGenres();
     this.getBestMovies();
   },
@@ -247,6 +274,6 @@ export default {
   margin-top: 160px !important;
 }
 .poster {
-  height: 300px !important;
+  /* height: 300px !important; */
 }
 </style>
