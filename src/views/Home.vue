@@ -6,13 +6,29 @@
       <span class="text-h5 white--text ml-10">Découvrez les meilleurs films de tous les temps ici !</span>
       <template v-slot:extension>
         <v-icon class="pb-8 white--text text-h4 pointer">mdi-format-title</v-icon
-        ><v-text-field v-model="titleSearch" hide details dark dense background-color="grey darken-3" filled class="mb-3 mx-2" clearable label="Titre" color="white"></v-text-field>
+        ><v-text-field
+          @change="movieIndex = 0"
+          @keypress="movieIndex = 0"
+          @click:clear="titleSearch= '', movieIndex = 0"
+          v-model="titleSearch"
+          hide
+          details
+          dark
+          dense
+          background-color="grey darken-3"
+          filled
+          class="mb-3 mx-2"
+          clearable
+          label="Titre"
+          color="white"
+        ></v-text-field>
         <v-icon class="pb-8 white--text text-h4 pointer">mdi-database</v-icon
         ><v-autocomplete
           chips
           clearable
           multiple
           small-chips
+          @change="movieIndex = 0"
           v-model="genreSearch"
           :items="genres"
           item-text="name"
@@ -30,15 +46,18 @@
         <v-checkbox dark color="white" class="mb-3" v-model="onlyUnseenMovies" label="Uniquement les films non vus"></v-checkbox>
         <v-range-slider v-model="years" min="1950" max="2021" hide-details color="white" class="align-center mb-9 ml-5">
           <template v-slot:prepend>
-            <v-text-field :value="years[0]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="$set(years, 0, $event)"></v-text-field>
+            <v-text-field :value="years[0]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="(movieIndex = 0), $set(years, 0, $event)"></v-text-field>
           </template>
           <template v-slot:append>
-            <v-text-field :value="years[1]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="$set(years, 1, $event)"></v-text-field>
+            <v-text-field :value="years[1]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="(movieIndex = 0), $set(years, 1, $event)"></v-text-field>
           </template>
         </v-range-slider>
       </template>
     </v-app-bar>
-    <v-row justify="start" id="timeline-row">
+    <v-row justify="center" id="timeline-row"
+      ><v-col cols="12" lg="10"> <v-slider hide-details :max="getMaxMovieIndex" min="0" v-model="movieIndex"></v-slider> </v-col
+    ></v-row>
+    <v-row justify="start">
       <v-col :cols="getStepperColumns" offset="2" offset-lg="1">
         <v-stepper alt-labels>
           <v-stepper-header>
@@ -151,7 +170,7 @@ export default {
         // Classement des films par date de sortie ascendante
         movies = movies.sort((a, b) => (a.release_date >= b.release_date ? 1 : -1));
         //* Filtre par le Titre
-        if (this.titleSearch.trim() !== "" && this.titleSearch.trim().length > 0) {
+        if (this.titleSearch !== null && this.titleSearch.trim() !== "" && this.titleSearch.trim().length > 0) {
           // On escape bien les caractères spéciaux avant la constitution du regex
           let escapedSearch = this.titleSearch.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
           // Initialisation de la chaine qui définira le regex
@@ -297,6 +316,12 @@ export default {
       }
       return columns;
     },
+    getMaxMovieIndex() {
+      if (this.getFilteredMovies.length > 0) {
+        return this.getFilteredMovies.length - this.getPaginationStep < 0 ? 0 : this.getFilteredMovies.length - this.getPaginationStep;
+      }
+      return 0;
+    },
   },
   methods: {
     setYears(results) {
@@ -308,8 +333,8 @@ export default {
           end = dayjs(results[movieIndex].release_date).year() > end ? dayjs(results[movieIndex].release_date).year() : end;
         }
       }
-      this.years[0] = start
-      this.years[1] = end
+      this.years[0] = start;
+      this.years[1] = end;
     },
     modifyMovieIndex(number, forward) {
       let newMovieIndex = forward ? this.movieIndex + number : this.movieIndex - number;
