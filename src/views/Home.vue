@@ -1,15 +1,15 @@
 <template>
   <v-container fluid>
-    <v-app-bar app absolute color="blue darken-3" elevate-on-scroll tile height="100">
+    <v-app-bar app  color="blue darken-3" elevate-on-scroll tile height="100">
       <v-icon class="white--text text-h4 pointer">mdi-filmstrip</v-icon>
       <v-toolbar-title class="white--text text-h4 font-weight-bold">Movies DB</v-toolbar-title>
       <span class="text-h5 white--text ml-10">Découvrez les meilleurs films de tous les temps ici !</span>
       <template v-slot:extension>
         <v-icon class="pb-8 white--text text-h4 pointer">mdi-format-title</v-icon
         ><v-text-field
-          @change="movieIndex = 0"
-          @keypress="movieIndex = 0"
-          @click:clear="titleSearch= '', movieIndex = 0"
+          @change="moviePagination = 0"
+          @keypress="moviePagination = 0"
+          @click:clear="(titleSearch = ''), (moviePagination = 0)"
           v-model="titleSearch"
           hide
           details
@@ -28,7 +28,8 @@
           clearable
           multiple
           small-chips
-          @change="movieIndex = 0"
+          @change="moviePagination = 0"
+          deletable-chips
           v-model="genreSearch"
           :items="genres"
           item-text="name"
@@ -43,19 +44,19 @@
           label="Genre"
           color="white"
         ></v-autocomplete>
-        <v-checkbox dark color="white" class="mb-3" v-model="onlyUnseenMovies" label="Uniquement les films non vus"></v-checkbox>
-        <v-range-slider v-model="years" min="1950" max="2021" hide-details color="white" class="align-center mb-9 ml-5">
+        <v-checkbox @change="moviePagination = 0" dark color="white" class="mb-3" v-model="onlyUnseenMovies" label="Uniquement les films non vus"></v-checkbox>
+        <v-range-slider @change="moviePagination = 0" v-model="years" min="1950" max="2021" hide-details color="white" class="align-center mb-9 ml-5">
           <template v-slot:prepend>
-            <v-text-field :value="years[0]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="(movieIndex = 0), $set(years, 0, $event)"></v-text-field>
+            <v-text-field :value="years[0]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="(moviePagination = 0), $set(years, 0, $event)"></v-text-field>
           </template>
           <template v-slot:append>
-            <v-text-field :value="years[1]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="(movieIndex = 0), $set(years, 1, $event)"></v-text-field>
+            <v-text-field :value="years[1]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="(moviePagination = 0), $set(years, 1, $event)"></v-text-field>
           </template>
         </v-range-slider>
       </template>
     </v-app-bar>
     <v-row justify="center" id="timeline-row"
-      ><v-col cols="12" lg="10"> <v-slider hide-details :max="getMaxMovieIndex" min="0" v-model="movieIndex"></v-slider> </v-col
+      ><v-col cols="12" lg="10"> <v-slider hide-details :max="getMaxMovieIndex" min="0" v-model="moviePagination"></v-slider> </v-col
     ></v-row>
     <v-row justify="start">
       <v-col :cols="getStepperColumns" offset="2" offset-lg="1">
@@ -74,10 +75,10 @@
     </v-row>
     <v-row class="text-center">
       <v-col cols="2" md="1" align-self="center" justify="center">
-        <v-btn v-if="movieIndex > 0 && getFilteredMovies.length > 6" @click="modifyMovieIndex(1, false)" large rounded color="grey darken-3" class="mb-3"
+        <v-btn v-if="moviePagination > 0 && getFilteredMovies.length > 6" @click="modifyMovieIndex(1, false)" large rounded color="grey darken-3" class="mb-3"
           ><v-icon class="white--text">mdi-chevron-left</v-icon></v-btn
         >
-        <v-btn v-if="movieIndex > 0 && getFilteredMovies.length > 6" @click="modifyMovieIndex(getPaginationStep, false)" large rounded color="grey darken-3"
+        <v-btn v-if="moviePagination > 0 && getFilteredMovies.length > 6" @click="modifyMovieIndex(getPaginationStep, false)" large rounded color="grey darken-3"
           ><v-icon class="white--text">mdi-chevron-double-left</v-icon></v-btn
         >
       </v-col>
@@ -85,7 +86,7 @@
         <v-row no-gutters>
           <v-col v-for="(movie, index) in getDisplayedMovies" :key="index" :cols="getColumnSize" class="movie-col">
             <div class="white text-left text-center poster">
-              <v-img :src="'https://image.tmdb.org/t/p/w300' + movie.poster_path" max-width="300" height="350"></v-img>
+              <v-img :src="'https://image.tmdb.org/t/p/w300' + movie.poster_path" max-width="300" height="400"></v-img>
             </div>
             <div class="blue text-left pl-2 movie-title">
               <span class="text-h6 white--text">{{ movie.title }}</span>
@@ -110,10 +111,10 @@
         </v-row>
       </v-col>
       <v-col cols="2" md="1" align-self="center">
-        <v-btn v-if="movieIndex < getFilteredMovies.length - getDisplayedMovies.length" @click="modifyMovieIndex(1, true)" large rounded color="grey darken-3" class="mb-3"
+        <v-btn v-if="moviePagination < getFilteredMovies.length - getDisplayedMovies.length" @click="modifyMovieIndex(1, true)" large rounded color="grey darken-3" class="mb-3"
           ><v-icon class="white--text">mdi-chevron-right</v-icon></v-btn
         >
-        <v-btn v-if="movieIndex < getFilteredMovies.length - getDisplayedMovies.length" @click="modifyMovieIndex(getPaginationStep, true)" large rounded color="grey darken-3"
+        <v-btn v-if="moviePagination < getFilteredMovies.length - getDisplayedMovies.length" @click="modifyMovieIndex(getPaginationStep, true)" large rounded color="grey darken-3"
           ><v-icon class="white--text">mdi-chevron-double-right</v-icon></v-btn
         >
       </v-col>
@@ -133,18 +134,19 @@ export default {
   components: {},
   data() {
     return {
-      onlyUnseenMovies: false,
-      years: [1950, 2021],
-      dayjs: dayjs,
-      results: [],
-      movieIndex: 0,
-      genres: [],
-      titleSearch: "",
-      genreSearch: "",
-      seenMoviesIds: [],
+      onlyUnseenMovies: false, //? Checkbox voir uniquement les films non vus
+      years: [1950, 2021], //? Années de début / de fin pour la sélection
+      dayjs: dayjs, //? utilisé pour la conversion de dates
+      results: [], //? Tableau des films récupérés depuis l'API
+      moviePagination: 0, //? 
+      genres: [], //? Tableau des genres récupérés
+      titleSearch: "", //? Contenu du champ de titre
+      genreSearch: "", //? Contenu de recherche des genres
+      seenMoviesIds: [], //? Tableau  des ids des films déjà vus
     };
   },
   computed: {
+    //? Obtention de l'année de sortie la plus petite des films récupérés
     getMinYear() {
       let minYear = dayjs().year();
       if (this.results.length > 0) {
@@ -154,6 +156,7 @@ export default {
       }
       return minYear;
     },
+    //? Obtention de l'année de sortie la plus grande des films récupérés
     getMaxYear() {
       let maxYear = dayjs().year();
       if (this.results.length > 0) {
@@ -163,7 +166,7 @@ export default {
       }
       return maxYear;
     },
-    // Classement des films selon la date de sortie, et filtrés selon les champs
+    //? Classement des films selon la date de sortie, et filtrés selon les champs titres / genre / vus / année de sortie
     getFilteredMovies() {
       let movies = this.results;
       if (movies.length > 0) {
@@ -229,9 +232,11 @@ export default {
       // On ne garde que de l'index défini à +6
       return movies;
     },
+    //? Récupération des films à afficher
     getDisplayedMovies() {
-      var indexMovie = this.movieIndex;
+      var moviePagination = this.moviePagination;
       var breakPoint;
+      // Selon la  taille de l'écran
       switch (this.$vuetify.breakpoint.name) {
         case "xs":
           breakPoint = 2;
@@ -250,11 +255,13 @@ export default {
           break;
       }
       return this.getFilteredMovies.filter(function(element, index) {
-        return index >= indexMovie && index <= indexMovie + breakPoint;
+        return index >= moviePagination && index <= moviePagination + breakPoint;
       });
     },
+    //? Définition de la taille de colonne des films selon la taille de l'écran
     getColumnSize() {
       var breakPoint;
+      // Selon la  taille de l'écran
       switch (this.$vuetify.breakpoint.name) {
         case "xs":
           breakPoint = 6;
@@ -274,8 +281,10 @@ export default {
       }
       return breakPoint;
     },
+    //? Définition du nombre de films à afficher selon la taille de l'écran  
     getPaginationStep() {
       var breakPoint;
+      // Selon la  taille de l'écran
       switch (this.$vuetify.breakpoint.name) {
         case "xs":
           breakPoint = 2;
@@ -292,11 +301,16 @@ export default {
         case "xl":
           breakPoint = 6;
           break;
+        default:
+          breakPoint = 2;
+          break;
       }
       return breakPoint;
     },
+    //? Définition de la taille de chaque partie de chronologie
     getStepperColumns() {
       var columns;
+      // Selon la  taille de l'écran
       switch (this.$vuetify.breakpoint.name) {
         case "xs":
           columns = this.getDisplayedMovies.length * 6 - 4;
@@ -312,10 +326,14 @@ export default {
           break;
         case "xl":
           columns = this.getDisplayedMovies.length * 2 - 2;
+          if (this.getDisplayedMovies.length <= 2) {
+            columns++
+          }
           break;
       }
       return columns;
     },
+    //? Index maximum de pagination pour la  navigation
     getMaxMovieIndex() {
       if (this.getFilteredMovies.length > 0) {
         return this.getFilteredMovies.length - this.getPaginationStep < 0 ? 0 : this.getFilteredMovies.length - this.getPaginationStep;
@@ -324,8 +342,9 @@ export default {
     },
   },
   methods: {
+    //? Définition des années de sélection selon les films récupérés
     setYears(results) {
-      let start = 1954;
+      let start = 1900;
       let end = 2021;
       if (results.length > 0) {
         for (let movieIndex in results) {
@@ -336,16 +355,18 @@ export default {
       this.years[0] = start;
       this.years[1] = end;
     },
+    //? Modification de la pagination depuis les flèches
     modifyMovieIndex(number, forward) {
-      let newMovieIndex = forward ? this.movieIndex + number : this.movieIndex - number;
-      if (newMovieIndex < 0) {
-        this.movieIndex = 0;
-      } else if (newMovieIndex >= this.getFilteredMovies.length - this.getPaginationStep) {
-        this.movieIndex = this.getFilteredMovies.length - this.getPaginationStep;
+      let moviePagination = forward ? this.moviePagination + number : this.moviePagination - number;
+      if (moviePagination < 0) {
+        this.moviePagination = 0;
+      } else if (moviePagination >= this.getFilteredMovies.length - this.getPaginationStep) {
+        this.moviePagination = this.getFilteredMovies.length - this.getPaginationStep;
       } else {
-        this.movieIndex = newMovieIndex;
+        this.moviePagination = moviePagination;
       }
     },
+    //? Construction du contenu des genres pour les films
     getMovieGenres(genreIdsArray) {
       let genres = "";
       for (let genreIdIndex in genreIdsArray) {
@@ -366,7 +387,7 @@ export default {
       }
       return genres;
     },
-    //  Récupération des films via l'API TMDB
+    //?  Récupération des films via l'API TMDB
     getGenres() {
       return new Promise((resolve) => {
         this.genres = [];
@@ -378,12 +399,12 @@ export default {
         resolve();
       });
     },
-    //  Récupération des films via l'API TMDB
+    //?  Récupération des films via l'API TMDB
     getBestMovies() {
       return new Promise((resolve) => {
         this.results = [];
         // Récupération des  100 premières pages pour avoir les 2000 films
-        for (let page = 1; page <= 2; page++) {
+        for (let page = 1; page <= 100; page++) {
           axios.get("https://api.themoviedb.org/3/movie/top_rated?api_key=" + process.env.VUE_APP_MOVIEDB_KEY + "&language=fr-FR&page=" + page).then((response) => {
             // Parcours des films pour les ajouter au résultats
             for (let resultIndex in response.data.results) {
@@ -394,6 +415,7 @@ export default {
         resolve();
       });
     },
+    //? Ajout / suppression d'un films dans la liste des films vus
     toggleSeenMovie(movieId) {
       // Si le film est déjà vu
       if (this.seenMoviesIds.includes(movieId)) {
