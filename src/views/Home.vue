@@ -28,7 +28,7 @@
           color="white"
         ></v-autocomplete>
         <v-checkbox dark color="white" class="mb-3" v-model="onlyUnseenMovies" label="Uniquement les films non vus"></v-checkbox>
-        <v-range-slider v-model="years" :max="maxYear" :min="minYear" hide-details color="white" class="align-center mb-9 ml-5">
+        <v-range-slider v-model="years" min="1950" max="2021" hide-details color="white" class="align-center mb-9 ml-5">
           <template v-slot:prepend>
             <v-text-field :value="years[0]" dark class="mt-0 pt-0" hide-details single-line type="number" style="width: 60px" @change="$set(years, 0, $event)"></v-text-field>
           </template>
@@ -38,8 +38,8 @@
         </v-range-slider>
       </template>
     </v-app-bar>
-    <v-row justify="center" id="timeline-row">
-      <v-col cols="8" lg="10">
+    <v-row justify="start" id="timeline-row">
+      <v-col :cols="getStepperColumns" offset="2" offset-lg="1">
         <v-stepper alt-labels>
           <v-stepper-header>
             <template v-for="(movie, index) in getDisplayedMovies">
@@ -55,14 +55,18 @@
     </v-row>
     <v-row class="text-center">
       <v-col cols="2" md="1" align-self="center" justify="center">
-        <v-btn v-if="movieIndex > 0 && getOrderedMovies.length > 6" @click="movieIndex--" large rounded color="grey darken-3" class="mb-3"><v-icon class="white--text">mdi-chevron-left</v-icon></v-btn>
-        <v-btn v-if="movieIndex > 0 && getOrderedMovies.length > 6" @click="movieIndex--" large rounded color="grey darken-3"><v-icon class="white--text">mdi-chevron-double-left</v-icon></v-btn>
+        <v-btn v-if="movieIndex > 0 && getFilteredMovies.length > 6" @click="modifyMovieIndex(1, false)" large rounded color="grey darken-3" class="mb-3"
+          ><v-icon class="white--text">mdi-chevron-left</v-icon></v-btn
+        >
+        <v-btn v-if="movieIndex > 0 && getFilteredMovies.length > 6" @click="modifyMovieIndex(getPaginationStep, false)" large rounded color="grey darken-3"
+          ><v-icon class="white--text">mdi-chevron-double-left</v-icon></v-btn
+        >
       </v-col>
       <v-col cols="8" md="10">
         <v-row no-gutters>
-          <v-col v-for="(movie, index) in getDisplayedMovies" :key="index" lg="2" md="4" cols="6" class="movie-col">
+          <v-col v-for="(movie, index) in getDisplayedMovies" :key="index" :cols="getColumnSize" class="movie-col">
             <div class="white text-left text-center poster">
-              <v-img :src="'https://image.tmdb.org/t/p/w300' + movie.poster_path" max-width="300" height="330"></v-img>
+              <v-img :src="'https://image.tmdb.org/t/p/w300' + movie.poster_path" max-width="300" height="350"></v-img>
             </div>
             <div class="blue text-left pl-2 movie-title">
               <span class="text-h6 white--text">{{ movie.title }}</span>
@@ -74,19 +78,25 @@
               <span class="text-h6 white--text">{{ dayjs(movie.release_date).format("DD/MM/YYYY") }}</span>
             </div>
             <div class="grey darken-3 text-left pa-4 text-center">
-                >
-                
-              <v-tooltip top open-delay="200" >
+              >
+              <v-tooltip top open-delay="200">
                 <template v-slot:activator="{ on, attrs }">
-                <v-btn v-on="on" v-bind="attrs" :color="seenMoviesIds.includes(movie.id) ==  false ? 'green' : 'red darken-3'" @click="toggleSeenMovie(movie.id)"><v-icon color="white" class="text-h5">mdi-bookmark</v-icon></v-btn>
-                </template>{{seenMoviesIds.includes(movie.id) ==  false ? 'Ajouter aux films déjà vus' : 'Retirer des films déjà vus'}}</v-tooltip>
+                  <v-btn v-on="on" v-bind="attrs" :color="seenMoviesIds.includes(movie.id) == false ? 'green' : 'red darken-3'" @click="toggleSeenMovie(movie.id)"
+                    ><v-icon color="white" class="text-h5">mdi-bookmark</v-icon></v-btn
+                  > </template
+                >{{ seenMoviesIds.includes(movie.id) == false ? "Ajouter aux films déjà vus" : "Retirer des films déjà vus" }}</v-tooltip
+              >
             </div>
           </v-col>
         </v-row>
       </v-col>
       <v-col cols="2" md="1" align-self="center">
-        <v-btn v-if="getOrderedMovies.length > 6" @click="movieIndex++" large rounded color="grey darken-3" class="mb-3"><v-icon class="white--text">mdi-chevron-right</v-icon></v-btn>
-        <v-btn v-if="getOrderedMovies.length > 6" @click="movieIndex++" large rounded color="grey darken-3"><v-icon class="white--text">mdi-chevron-double-right</v-icon></v-btn>
+        <v-btn v-if="movieIndex < getFilteredMovies.length - getDisplayedMovies.length" @click="modifyMovieIndex(1, true)" large rounded color="grey darken-3" class="mb-3"
+          ><v-icon class="white--text">mdi-chevron-right</v-icon></v-btn
+        >
+        <v-btn v-if="movieIndex < getFilteredMovies.length - getDisplayedMovies.length" @click="modifyMovieIndex(getPaginationStep, true)" large rounded color="grey darken-3"
+          ><v-icon class="white--text">mdi-chevron-double-right</v-icon></v-btn
+        >
       </v-col>
     </v-row>
   </v-container>
@@ -105,9 +115,7 @@ export default {
   data() {
     return {
       onlyUnseenMovies: false,
-      years: [1920, 2021],
-      minYear: 1920,
-      maxYear: 2021,
+      years: [1950, 2021],
       dayjs: dayjs,
       results: [],
       movieIndex: 0,
@@ -118,8 +126,26 @@ export default {
     };
   },
   computed: {
+    getMinYear() {
+      let minYear = dayjs().year();
+      if (this.results.length > 0) {
+        for (let movieIndex in this.results) {
+          minYear = dayjs(this.results[movieIndex].release_date).year() < minYear ? dayjs(this.results[movieIndex].release_date).year() : minYear;
+        }
+      }
+      return minYear;
+    },
+    getMaxYear() {
+      let maxYear = dayjs().year();
+      if (this.results.length > 0) {
+        for (let movieIndex in this.results) {
+          maxYear = dayjs(this.results[movieIndex].release_date).year() > maxYear ? dayjs(this.results[movieIndex].release_date).year() : maxYear;
+        }
+      }
+      return maxYear;
+    },
     // Classement des films selon la date de sortie, et filtrés selon les champs
-    getOrderedMovies() {
+    getFilteredMovies() {
       let movies = this.results;
       if (movies.length > 0) {
         // Classement des films par date de sortie ascendante
@@ -165,7 +191,7 @@ export default {
           });
         }
         //* Filtre par années sélectionnées
-        if (this.years.length > 0) {
+        if (this.years.length > 0 && this.years[0] !== null && this.years[1] !== null) {
           var years = this.years;
           movies = movies.filter((film) => {
             // Quelle est l'année de parution du film?
@@ -174,7 +200,7 @@ export default {
           });
         }
         //* Filtre des filmes déjà vus
-        if(this.onlyUnseenMovies ==  true) {
+        if (this.onlyUnseenMovies == true) {
           movies = movies.filter((film) => {
             return !this.seenMoviesIds.includes(film.id);
           });
@@ -186,12 +212,115 @@ export default {
     },
     getDisplayedMovies() {
       var indexMovie = this.movieIndex;
-      return this.getOrderedMovies.filter(function(element, index) {
-        return index >= indexMovie && index <= indexMovie + 5;
+      var breakPoint;
+      switch (this.$vuetify.breakpoint.name) {
+        case "xs":
+          breakPoint = 2;
+          break;
+        case "sm":
+          breakPoint = 2;
+          break;
+        case "md":
+          breakPoint = 3;
+          break;
+        case "lg":
+          breakPoint = 3;
+          break;
+        case "xl":
+          breakPoint = 5;
+          break;
+      }
+      return this.getFilteredMovies.filter(function(element, index) {
+        return index >= indexMovie && index <= indexMovie + breakPoint;
       });
+    },
+    getColumnSize() {
+      var breakPoint;
+      switch (this.$vuetify.breakpoint.name) {
+        case "xs":
+          breakPoint = 6;
+          break;
+        case "sm":
+          breakPoint = 4;
+          break;
+        case "md":
+          breakPoint = 3;
+          break;
+        case "lg":
+          breakPoint = 3;
+          break;
+        case "xl":
+          breakPoint = 2;
+          break;
+      }
+      return breakPoint;
+    },
+    getPaginationStep() {
+      var breakPoint;
+      switch (this.$vuetify.breakpoint.name) {
+        case "xs":
+          breakPoint = 2;
+          break;
+        case "sm":
+          breakPoint = 3;
+          break;
+        case "md":
+          breakPoint = 4;
+          break;
+        case "lg":
+          breakPoint = 4;
+          break;
+        case "xl":
+          breakPoint = 6;
+          break;
+      }
+      return breakPoint;
+    },
+    getStepperColumns() {
+      var columns;
+      switch (this.$vuetify.breakpoint.name) {
+        case "xs":
+          columns = this.getDisplayedMovies.length * 6 - 4;
+          break;
+        case "sm":
+          columns = this.getDisplayedMovies.length * 4 - 4;
+          break;
+        case "md":
+          columns = this.getDisplayedMovies.length * 3 - 4;
+          break;
+        case "lg":
+          columns = this.getDisplayedMovies.length * 3 - 2;
+          break;
+        case "xl":
+          columns = this.getDisplayedMovies.length * 2 - 2;
+          break;
+      }
+      return columns;
     },
   },
   methods: {
+    setYears(results) {
+      let start = 1954;
+      let end = 2021;
+      if (results.length > 0) {
+        for (let movieIndex in results) {
+          start = dayjs(results[movieIndex].release_date).year() < start ? dayjs(results[movieIndex].release_date).year() : start;
+          end = dayjs(results[movieIndex].release_date).year() > end ? dayjs(results[movieIndex].release_date).year() : end;
+        }
+      }
+      this.years[0] = start
+      this.years[1] = end
+    },
+    modifyMovieIndex(number, forward) {
+      let newMovieIndex = forward ? this.movieIndex + number : this.movieIndex - number;
+      if (newMovieIndex < 0) {
+        this.movieIndex = 0;
+      } else if (newMovieIndex >= this.getFilteredMovies.length - this.getPaginationStep) {
+        this.movieIndex = this.getFilteredMovies.length - this.getPaginationStep;
+      } else {
+        this.movieIndex = newMovieIndex;
+      }
+    },
     getMovieGenres(genreIdsArray) {
       let genres = "";
       for (let genreIdIndex in genreIdsArray) {
@@ -214,25 +343,31 @@ export default {
     },
     //  Récupération des films via l'API TMDB
     getGenres() {
-      this.genres = [];
-      axios.get("https://api.themoviedb.org/3/genre/movie/list?api_key=" + process.env.VUE_APP_MOVIEDB_KEY + "&language=fr-FR").then((response) => {
-        for (let resultIndex in response.data?.genres) {
-          this.genres.push(response.data.genres[resultIndex]);
-        }
+      return new Promise((resolve) => {
+        this.genres = [];
+        axios.get("https://api.themoviedb.org/3/genre/movie/list?api_key=" + process.env.VUE_APP_MOVIEDB_KEY + "&language=fr-FR").then((response) => {
+          for (let resultIndex in response.data?.genres) {
+            this.genres.push(response.data.genres[resultIndex]);
+          }
+        });
+        resolve();
       });
     },
     //  Récupération des films via l'API TMDB
     getBestMovies() {
-      this.results = [];
-      // Récupération des  100 premières pages pour avoir les 2000 films
-      for (let page = 1; page <= 2; page++) {
-        axios.get("https://api.themoviedb.org/3/movie/top_rated?api_key=" + process.env.VUE_APP_MOVIEDB_KEY + "&language=fr-FR&page=" + page).then((response) => {
-          // Parcours des films pour les ajouter au résultats
-          for (let resultIndex in response.data.results) {
-            this.results.push(response.data.results[resultIndex]);
-          }
-        });
-      }
+      return new Promise((resolve) => {
+        this.results = [];
+        // Récupération des  100 premières pages pour avoir les 2000 films
+        for (let page = 1; page <= 2; page++) {
+          axios.get("https://api.themoviedb.org/3/movie/top_rated?api_key=" + process.env.VUE_APP_MOVIEDB_KEY + "&language=fr-FR&page=" + page).then((response) => {
+            // Parcours des films pour les ajouter au résultats
+            for (let resultIndex in response.data.results) {
+              this.results.push(response.data.results[resultIndex]);
+            }
+          });
+        }
+        resolve();
+      });
     },
     toggleSeenMovie(movieId) {
       // Si le film est déjà vu
@@ -244,11 +379,11 @@ export default {
           this.seenMoviesIds.splice(movieIndex, 1);
         }
       } else {
-          // On l'ajoute dans la liste
-          this.seenMoviesIds.push(movieId);
-        }
+        // On l'ajoute dans la liste
+        this.seenMoviesIds.push(movieId);
+      }
       // Modification dans le local storage
-      localStorage.setItem('seen_movies', JSON.stringify(this.seenMoviesIds));
+      localStorage.setItem("seen_movies", JSON.stringify(this.seenMoviesIds));
     },
   },
   beforeMount() {
@@ -256,8 +391,7 @@ export default {
     if (localStorage.getItem("seen_movies")) {
       this.seenMoviesIds = JSON.parse(localStorage.getItem("seen_movies"));
     }
-    this.getGenres();
-    this.getBestMovies();
+    this.getGenres().then(() => this.getBestMovies().then(() => this.setYears(JSON.parse(JSON.stringify(this.results)))));
   },
 };
 </script>
@@ -272,8 +406,5 @@ export default {
 
 #timeline-row {
   margin-top: 160px !important;
-}
-.poster {
-  /* height: 300px !important; */
 }
 </style>
